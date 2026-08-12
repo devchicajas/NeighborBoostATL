@@ -57,15 +57,27 @@ streamlit run app.py
 
 ## Deploy on Render
 
-1. Create a new **Web Service** from this repository.
-2. Build command: `pip install -r requirements.txt`
-3. Start command:
+### One-click (Blueprint)
+
+1. Open: [Deploy to Render](https://render.com/deploy?repo=https://github.com/devchicajas/NeighborBoostATL)
+2. Sign in to Render and connect GitHub if prompted.
+3. Confirm the `neighborboost-atl` web service and click **Apply**.
+
+### Manual Web Service
+
+1. Go to [Render Dashboard](https://dashboard.render.com/) → **New** → **Web Service**.
+2. Connect `devchicajas/NeighborBoostATL` (branch `main`).
+3. Runtime: **Python 3**
+4. Build command: `pip install -r requirements.txt`
+5. Start command:
 
 ```bash
-streamlit run app.py --server.address 0.0.0.0 --server.port $PORT
+streamlit run app.py --server.address 0.0.0.0 --server.port $PORT --server.headless true
 ```
 
-4. Ensure Python 3 is selected. No environment secrets are required for the MVP.
+6. Create the service. No environment secrets are required for the MVP.
+
+A `render.yaml` blueprint is included in this repo for repeatable deploys.
 
 ## Social impact
 
