@@ -798,6 +798,16 @@ button[data-baseweb="tab"][aria-selected="true"] {{
   color: var(--navy-soft);
 }}
 
+/* Hide Streamlit hover tooltips (keyboard shortcut hints, widget help) */
+div[data-testid="stTooltipContent"],
+[data-testid="stTooltipContent"],
+.stTooltipContent {{
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}}
+
 @media (max-width: 700px) {{
   .impact-wrap {{
     grid-template-columns: 1fr;
@@ -1143,7 +1153,6 @@ def post_request_tab() -> None:
             "Optional photo or short video",
             type=["png", "jpg", "jpeg", "mp4"],
             key="form-media",
-            help="Stored only in this browser session — not uploaded to the cloud.",
         )
 
         submitted = st.form_submit_button(
