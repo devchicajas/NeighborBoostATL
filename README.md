@@ -15,7 +15,7 @@ Small Atlanta businesses often need a quick boost during slow hours, before clos
 ## How it works
 
 1. A local business posts **one** time-sensitive request (visit, share, or help).
-2. Neighbors browse the Discover feed (sorted by urgency), filter by neighborhood / category / support type.
+2. Neighbors browse the Discover feed (hottest businesses first), filter by neighborhood / category / support type.
 3. Supporters click **I’ll Visit**, **I’ll Share**, or **I Can Help**.
 4. Progress bars, impact metrics, and the **Hot Right Now** ranking update immediately.
 
