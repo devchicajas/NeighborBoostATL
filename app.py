@@ -54,6 +54,10 @@ PLACEHOLDER_STYLES = [
     ("🥐", "linear-gradient(135deg, #81B29A 0%, #F2CC8F 100%)"),
     ("🌿", "linear-gradient(135deg, #3D5A80 0%, #81B29A 100%)"),
     ("🍲", "linear-gradient(135deg, #E07A5F 0%, #3D5A80 100%)"),
+    ("💈", "linear-gradient(135deg, #C85A3E 0%, #3D5A80 100%)"),
+    ("📚", "linear-gradient(135deg, #2F6F5E 0%, #F2CC8F 100%)"),
+    ("🧵", "linear-gradient(135deg, #E07A5F 0%, #81B29A 100%)"),
+    ("🎧", "linear-gradient(135deg, #1B2A4A 0%, #E07A5F 100%)"),
 ]
 
 # Roughly 1-in-5 chance of a cosmetic demo “$5 credit” celebration.
@@ -65,6 +69,7 @@ CREDIT_CHANCE = 0.20
 # ---------------------------------------------------------------------------
 
 def make_seed_posts() -> list[dict[str, Any]]:
+    """Fictional Atlanta demo businesses — clearly labeled Demo Business."""
     return [
         {
             "id": "demo-peach-bean",
@@ -158,6 +163,98 @@ def make_seed_posts() -> list[dict[str, Any]]:
             "placeholder_idx": 3,
             "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
         },
+        {
+            "id": "demo-edgewood-cuts",
+            "business_name": "Edgewood Cuts & Co.",
+            "neighborhood": "Old Fourth Ward",
+            "category": "Salon / Beauty",
+            "story": (
+                "A neighborhood barbershop known for sharp fades and "
+                "community conversations on the porch."
+            ),
+            "request": (
+                "We’re quiet until 4 PM — help us fill 6 open chair "
+                "slots with walk-ins today."
+            ),
+            "goal": 6,
+            "supporters": 5,
+            "hours_remaining": 5,
+            "support_actions": ["Visit", "Share"],
+            "is_demo": True,
+            "media_bytes": None,
+            "media_type": None,
+            "placeholder_idx": 4,
+            "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
+        },
+        {
+            "id": "demo-beltline-pages",
+            "business_name": "Beltline Pages Bookstore",
+            "neighborhood": "Grant Park",
+            "category": "Retail",
+            "story": (
+                "A tiny indie bookstore highlighting Atlanta authors and "
+                "hosting free weekend reading hours for kids."
+            ),
+            "request": (
+                "Share our tonight’s author meetup so we can fill the "
+                "last 15 seats."
+            ),
+            "goal": 15,
+            "supporters": 11,
+            "hours_remaining": 4,
+            "support_actions": ["Share", "Visit"],
+            "is_demo": True,
+            "media_bytes": None,
+            "media_type": None,
+            "placeholder_idx": 5,
+            "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
+        },
+        {
+            "id": "demo-kirkwood-stitch",
+            "business_name": "Kirkwood Stitch Lab",
+            "neighborhood": "Kirkwood",
+            "category": "Other",
+            "story": (
+                "A community sewing studio teaching mending skills and "
+                "upcycling clothes instead of tossing them."
+            ),
+            "request": (
+                "We need 2 neighbors who can help set up sewing machines "
+                "before tonight’s free class."
+            ),
+            "goal": 2,
+            "supporters": 1,
+            "hours_remaining": 7,
+            "support_actions": ["Help", "Share"],
+            "is_demo": True,
+            "media_bytes": None,
+            "media_type": None,
+            "placeholder_idx": 6,
+            "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
+        },
+        {
+            "id": "demo-eastside-vinyl",
+            "business_name": "Eastside Vinyl & Tea",
+            "neighborhood": "East Atlanta",
+            "category": "Retail",
+            "story": (
+                "A record shop and tea bar where locals dig for vinyl "
+                "and linger over Atlanta playlists."
+            ),
+            "request": (
+                "Stop by for our first-timer tea flight special — we want "
+                "8 new faces before closing."
+            ),
+            "goal": 8,
+            "supporters": 2,
+            "hours_remaining": 9,
+            "support_actions": ["Visit", "Share"],
+            "is_demo": True,
+            "media_bytes": None,
+            "media_type": None,
+            "placeholder_idx": 7,
+            "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
+        },
     ]
 
 
@@ -165,11 +262,21 @@ def make_seed_posts() -> list[dict[str, Any]]:
 # Session state
 # ---------------------------------------------------------------------------
 
+SEED_VERSION = 2  # bump when demo seed data changes
+
+
 def init_state() -> None:
     if "theme" not in st.session_state:
         st.session_state.theme = "light"
-    if "posts" not in st.session_state:
+    if (
+        "posts" not in st.session_state
+        or st.session_state.get("seed_version") != SEED_VERSION
+    ):
         st.session_state.posts = make_seed_posts()
+        st.session_state.seed_version = SEED_VERSION
+        st.session_state.user_actions = {}
+        st.session_state.post_counter = 0
+        st.session_state.credit_celebration = None
     if "user_actions" not in st.session_state:
         # {(post_id, action): True}
         st.session_state.user_actions = {}
@@ -188,6 +295,7 @@ def init_state() -> None:
 def reset_demo() -> None:
     """Restore seed data and clear commitments; keep theme preference."""
     st.session_state.posts = make_seed_posts()
+    st.session_state.seed_version = SEED_VERSION
     st.session_state.user_actions = {}
     st.session_state.post_counter = 0
     st.session_state.flash_message = None
@@ -223,9 +331,16 @@ def compute_hot_ids(posts: list[dict[str, Any]]) -> set[str]:
     return {p["id"] for p in posts if p["supporters"] == max_supporters}
 
 
-def sort_by_urgency(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Soonest-expiring requests first; keep relative order for ties."""
-    return sorted(posts, key=lambda p: (p.get("hours_remaining", 9999), p["id"]))
+def sort_feed(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Hottest businesses first (most supporters), then soonest to expire."""
+    return sorted(
+        posts,
+        key=lambda p: (
+            -int(p.get("supporters", 0)),
+            int(p.get("hours_remaining", 9999)),
+            p["id"],
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -846,12 +961,12 @@ def discover_tab() -> None:
     filtered = filter_posts(
         st.session_state.posts, neighborhood, category, support_type
     )
-    filtered = sort_by_urgency(filtered)
+    filtered = sort_feed(filtered)
     hot_ids = compute_hot_ids(st.session_state.posts)
 
     st.caption(
-        f"Showing {len(filtered)} request(s), sorted by urgency. "
-        "🔥 marks the hottest business(es) citywide."
+        f"Showing {len(filtered)} request(s), hottest first. "
+        "🔥 marks the top-supported business(es) citywide."
     )
 
     if not filtered:

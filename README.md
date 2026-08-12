@@ -23,10 +23,10 @@ All data lives in Streamlit session state for this hackathon prototype — no ac
 
 ## Key features
 
-- Seeded Atlanta demo businesses with progress goals and countdowns
+- Eight seeded Atlanta demo businesses with progress goals and countdowns
 - Support actions with per-session duplicate prevention and ✓ done labels
-- **Hot Right Now** ranking for the most-supported business(es)
-- Urgency sorting + clear-filters control
+- **Hot Right Now** ranking — hottest businesses sort to the top of the feed
+- Clear-filters control
 - Goal Met badge when a request hits its support goal
 - Dark / light mode toggle (persists across Reset Demo)
 - Occasional simulated $5 credit celebration (cosmetic only — not real money)
