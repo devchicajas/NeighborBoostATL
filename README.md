@@ -110,4 +110,4 @@ This branch (`feature/combined-mvp`) uses Jasmin’s MVP design and structure as
 
 ## Demo data note
 
-The four seeded businesses (Peach & Bean Coffee, Nia’s Neighborhood Bakes, Southside Plant Studio, and Cultura Kitchen ATL) are **fictional** and provided only for demonstration. They are not affiliated with real Atlanta businesses.
+All seeded businesses (including Peach & Bean Coffee, Nia’s Neighborhood Bakes, Southside Plant Studio, Cultura Kitchen ATL, Edgewood Cuts & Co., Beltline Pages Bookstore, Kirkwood Stitch Lab, and Eastside Vinyl & Tea) are **fictional** and provided only for demonstration. They are not affiliated with real Atlanta businesses.
