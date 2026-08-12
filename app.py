@@ -1089,7 +1089,7 @@ def post_request_tab() -> None:
         "Neighbors can commit to visit, share, or help."
     )
 
-    with st.form("post-request-form", clear_on_submit=True):
+    with st.form("post-request-form", clear_on_submit=True, enter_to_submit=False):
         business_name = st.text_input(
             "Business name *",
             placeholder="e.g. Peach & Bean Coffee",
