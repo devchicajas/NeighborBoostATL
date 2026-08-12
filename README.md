@@ -1,5 +1,9 @@
 # NeighborBoost ATL
 
+<img width="1672" height="941" alt="ChatGPT Image Aug 12, 2026, 07_11_27 PM" src="https://github.com/user-attachments/assets/9103ea1a-7edf-4ad9-a14b-efc678b4e3fb" />
+
+
+
 **Atlanta shows up for Atlanta.**
 
 ## Mission
