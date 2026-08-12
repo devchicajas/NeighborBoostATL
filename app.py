@@ -1,0 +1,926 @@
+"""NeighborBoost ATL — Hack RenderATL MVP."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import streamlit as st
+
+# ---------------------------------------------------------------------------
+# Seed data
+# ---------------------------------------------------------------------------
+
+NEIGHBORHOODS = [
+    "Sweet Auburn",
+    "West End",
+    "South Atlanta",
+    "Downtown",
+    "East Atlanta",
+    "Grant Park",
+    "Old Fourth Ward",
+    "Kirkwood",
+]
+
+CATEGORIES = [
+    "Coffee Shop",
+    "Bakery",
+    "Retail",
+    "Restaurant",
+    "Salon / Beauty",
+    "Other",
+]
+
+SUPPORT_TYPES = ["Visit", "Share", "Help"]
+
+PLACEHOLDER_STYLES = [
+    ("☕", "linear-gradient(135deg, #E07A5F 0%, #F2CC8F 100%)"),
+    ("🥐", "linear-gradient(135deg, #81B29A 0%, #F2CC8F 100%)"),
+    ("🌿", "linear-gradient(135deg, #3D5A80 0%, #81B29A 100%)"),
+    ("🍲", "linear-gradient(135deg, #E07A5F 0%, #3D5A80 100%)"),
+]
+
+
+def make_seed_posts() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "demo-peach-bean",
+            "business_name": "Peach & Bean Coffee",
+            "neighborhood": "Sweet Auburn",
+            "category": "Coffee Shop",
+            "story": (
+                "An independent neighborhood café creating a welcoming "
+                "gathering place for local residents."
+            ),
+            "request": (
+                "Help us welcome 10 first-time customers during today’s "
+                "afternoon slowdown."
+            ),
+            "goal": 10,
+            "supporters": 4,
+            "hours_remaining": 6,
+            "support_actions": ["Visit", "Share"],
+            "is_demo": True,
+            "media_bytes": None,
+            "media_type": None,
+            "placeholder_idx": 0,
+            "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
+        },
+        {
+            "id": "demo-nias-bakes",
+            "business_name": "Nia’s Neighborhood Bakes",
+            "neighborhood": "West End",
+            "category": "Bakery",
+            "story": (
+                "A family-run bakery sharing small-batch pastries inspired "
+                "by family recipes."
+            ),
+            "request": (
+                "We have 12 pastry boxes available before closing and want "
+                "to prevent food waste."
+            ),
+            "goal": 12,
+            "supporters": 3,
+            "hours_remaining": 3,
+            "support_actions": ["Visit", "Share"],
+            "is_demo": True,
+            "media_bytes": None,
+            "media_type": None,
+            "placeholder_idx": 1,
+            "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
+        },
+        {
+            "id": "demo-southside-plant",
+            "business_name": "Southside Plant Studio",
+            "neighborhood": "South Atlanta",
+            "category": "Retail",
+            "story": (
+                "A small plant shop helping residents bring affordable "
+                "greenery into their homes."
+            ),
+            "request": (
+                "We need one local photographer to help photograph our "
+                "newest products."
+            ),
+            "goal": 1,
+            "supporters": 0,
+            "hours_remaining": 24,
+            "support_actions": ["Help", "Share"],
+            "is_demo": True,
+            "media_bytes": None,
+            "media_type": None,
+            "placeholder_idx": 2,
+            "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
+        },
+        {
+            "id": "demo-cultura-kitchen",
+            "business_name": "Cultura Kitchen ATL",
+            "neighborhood": "Downtown",
+            "category": "Restaurant",
+            "story": (
+                "A family-operated restaurant preserving traditional recipes "
+                "and introducing them to new neighbors."
+            ),
+            "request": (
+                "Help us share our new weekday lunch special with 20 "
+                "Atlanta residents."
+            ),
+            "goal": 20,
+            "supporters": 8,
+            "hours_remaining": 8,
+            "support_actions": ["Visit", "Share"],
+            "is_demo": True,
+            "media_bytes": None,
+            "media_type": None,
+            "placeholder_idx": 3,
+            "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
+        },
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Session state
+# ---------------------------------------------------------------------------
+
+def init_state() -> None:
+    if "posts" not in st.session_state:
+        st.session_state.posts = make_seed_posts()
+    if "user_actions" not in st.session_state:
+        # {(post_id, action): True}
+        st.session_state.user_actions = {}
+    if "post_counter" not in st.session_state:
+        st.session_state.post_counter = 0
+    if "active_tab" not in st.session_state:
+        st.session_state.active_tab = "Discover Local Businesses"
+    if "flash_message" not in st.session_state:
+        st.session_state.flash_message = None
+    if "form_success" not in st.session_state:
+        st.session_state.form_success = None
+
+
+def reset_demo() -> None:
+    st.session_state.posts = make_seed_posts()
+    st.session_state.user_actions = {}
+    st.session_state.post_counter = 0
+    st.session_state.flash_message = None
+    st.session_state.form_success = None
+    st.session_state.active_tab = "Discover Local Businesses"
+
+
+# ---------------------------------------------------------------------------
+# Metrics helpers
+# ---------------------------------------------------------------------------
+
+def compute_metrics(posts: list[dict[str, Any]]) -> tuple[int, int, int]:
+    active = len(posts)
+    boosted = sum(1 for p in posts if p["supporters"] > 0)
+    commitments = sum(p["supporters"] for p in posts)
+    return active, boosted, commitments
+
+
+def progress_ratio(supporters: int, goal: int) -> float:
+    if goal <= 0:
+        return 0.0
+    return min(supporters / goal, 1.0)
+
+
+# ---------------------------------------------------------------------------
+# Custom CSS
+# ---------------------------------------------------------------------------
+
+CUSTOM_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+
+:root {
+  --peach: #E07A5F;
+  --peach-deep: #C85A3E;
+  --cream: #FFF8F1;
+  --cream-deep: #FFE8D6;
+  --navy: #1B2A4A;
+  --navy-soft: #3D5A80;
+  --green: #2F6F5E;
+  --green-soft: #81B29A;
+  --gold: #F2CC8F;
+  --white: #FFFFFF;
+  --shadow: 0 8px 24px rgba(27, 42, 74, 0.08);
+}
+
+html, body, [class*="css"] {
+  font-family: "Source Sans 3", "Segoe UI", sans-serif;
+  color: var(--navy);
+}
+
+.stApp {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(224, 122, 95, 0.18), transparent 36%),
+    radial-gradient(circle at 88% 0%, rgba(129, 178, 154, 0.22), transparent 32%),
+    linear-gradient(180deg, #FFF8F1 0%, #FFEDE0 45%, #FFF8F1 100%);
+}
+
+.main .block-container {
+  padding-top: 1.4rem;
+  padding-bottom: 2.5rem;
+  max-width: 980px;
+}
+
+h1, h2, h3, .brand-title {
+  font-family: "Fraunces", Georgia, serif !important;
+  color: var(--navy) !important;
+  letter-spacing: -0.02em;
+}
+
+/* Header */
+.nb-header {
+  background: linear-gradient(135deg, rgba(255,248,241,0.95), rgba(255,232,214,0.92));
+  border: 1px solid rgba(224, 122, 95, 0.28);
+  border-radius: 22px;
+  padding: 1.4rem 1.5rem 1.2rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.1rem;
+}
+
+.nb-badge {
+  display: inline-block;
+  background: var(--navy);
+  color: var(--cream);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  margin-bottom: 0.75rem;
+}
+
+.brand-title {
+  font-size: clamp(1.9rem, 4vw, 2.55rem);
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+  line-height: 1.1;
+}
+
+.brand-tagline {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--peach-deep);
+  margin: 0 0 0.55rem 0;
+}
+
+.brand-desc {
+  margin: 0;
+  color: var(--navy-soft);
+  font-size: 1.02rem;
+  line-height: 1.45;
+  max-width: 42rem;
+}
+
+/* Impact metrics */
+.impact-wrap {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.4rem 0 1.1rem;
+}
+
+.impact-card {
+  background: var(--white);
+  border: 1px solid rgba(47, 111, 94, 0.18);
+  border-radius: 16px;
+  padding: 0.95rem 1rem;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.impact-value {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--green);
+  line-height: 1;
+  margin-bottom: 0.35rem;
+}
+
+.impact-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--navy-soft);
+  line-height: 1.25;
+}
+
+/* Business cards */
+.biz-card {
+  background: var(--white);
+  border: 1px solid rgba(27, 42, 74, 0.08);
+  border-radius: 20px;
+  padding: 1.15rem 1.2rem 1.05rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.1rem;
+}
+
+.biz-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
+.biz-name {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+}
+
+.badge-demo {
+  background: #FFE0C8;
+  color: #8A3B22;
+}
+
+.badge-meta {
+  background: #E8F2ED;
+  color: var(--green);
+}
+
+.badge-time {
+  background: #E7EEF8;
+  color: var(--navy-soft);
+}
+
+.biz-story, .biz-request {
+  color: var(--navy);
+  line-height: 1.45;
+  margin: 0.35rem 0;
+  font-size: 0.98rem;
+}
+
+.biz-request strong {
+  color: var(--peach-deep);
+}
+
+.media-placeholder {
+  width: 100%;
+  min-height: 140px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 3rem;
+  margin: 0.65rem 0 0.85rem;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
+}
+
+.progress-track {
+  width: 100%;
+  height: 12px;
+  background: #F0E6DC;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0.45rem 0 0.35rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green-soft), var(--green));
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--navy-soft);
+  margin-bottom: 0.55rem;
+}
+
+.support-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin: 0.2rem 0 0.15rem;
+}
+
+/* Buttons */
+div.stButton > button {
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  min-height: 2.7rem;
+  border: 1px solid transparent !important;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+div.stButton > button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(27, 42, 74, 0.12);
+}
+
+div.stButton > button[kind="primary"] {
+  background: linear-gradient(135deg, var(--peach), var(--peach-deep)) !important;
+  color: white !important;
+}
+
+div.stButton > button[kind="secondary"] {
+  background: var(--cream) !important;
+  color: var(--navy) !important;
+  border: 1px solid rgba(224, 122, 95, 0.35) !important;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, #FFF4EA, #FFE8D6);
+  border-right: 1px solid rgba(224, 122, 95, 0.2);
+}
+
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+  font-family: "Fraunces", Georgia, serif !important;
+}
+
+/* Footer */
+.nb-footer {
+  margin-top: 1.8rem;
+  padding: 1.1rem 0.4rem 0.2rem;
+  border-top: 1px solid rgba(27, 42, 74, 0.12);
+  text-align: center;
+  color: var(--navy-soft);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.nb-footer strong {
+  color: var(--navy);
+}
+
+.empty-state {
+  background: rgba(255,255,255,0.8);
+  border: 1px dashed rgba(61, 90, 128, 0.35);
+  border-radius: 16px;
+  padding: 1.4rem;
+  text-align: center;
+  color: var(--navy-soft);
+}
+
+@media (max-width: 700px) {
+  .impact-wrap {
+    grid-template-columns: 1fr;
+  }
+  .biz-card {
+    padding: 1rem;
+  }
+  .main .block-container {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+}
+</style>
+"""
+
+
+# ---------------------------------------------------------------------------
+# UI pieces
+# ---------------------------------------------------------------------------
+
+def render_header() -> None:
+    st.markdown(
+        """
+        <div class="nb-header">
+          <div class="nb-badge">Built for Hack RenderATL</div>
+          <h1 class="brand-title">NeighborBoost ATL</h1>
+          <p class="brand-tagline">Atlanta shows up for Atlanta.</p>
+          <p class="brand-desc">
+            Discover one simple action you can take to support an Atlanta
+            small business today.
+          </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_impact(posts: list[dict[str, Any]]) -> None:
+    active, boosted, commitments = compute_metrics(posts)
+    st.markdown(
+        f"""
+        <div class="impact-wrap">
+          <div class="impact-card">
+            <div class="impact-value">{active}</div>
+            <div class="impact-label">Active business requests</div>
+          </div>
+          <div class="impact-card">
+            <div class="impact-value">{boosted}</div>
+            <div class="impact-label">Local businesses boosted</div>
+          </div>
+          <div class="impact-card">
+            <div class="impact-value">{commitments}</div>
+            <div class="impact-label">Total neighbor commitments</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_media(post: dict[str, Any]) -> None:
+    media_bytes = post.get("media_bytes")
+    media_type = post.get("media_type")
+
+    if media_bytes and media_type:
+        if media_type.startswith("image/"):
+            st.image(media_bytes, use_container_width=True)
+            return
+        if media_type.startswith("video/"):
+            try:
+                st.video(media_bytes)
+                return
+            except Exception:
+                st.caption("Video preview unavailable — photo upload is preferred.")
+
+    idx = post.get("placeholder_idx", 0) % len(PLACEHOLDER_STYLES)
+    emoji, gradient = PLACEHOLDER_STYLES[idx]
+    st.markdown(
+        f"""
+        <div class="media-placeholder" style="background: {gradient};" aria-hidden="true">
+          {emoji}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def record_support(post_id: str, action: str) -> None:
+    key = (post_id, action)
+    if key in st.session_state.user_actions:
+        st.session_state.flash_message = (
+            f"You already committed to “{action}” for this business. "
+            "Thank you — one commitment per action goes a long way."
+        )
+        return
+
+    for post in st.session_state.posts:
+        if post["id"] == post_id:
+            post["supporters"] += 1
+            post["actions_taken"][action] = post["actions_taken"].get(action, 0) + 1
+            break
+
+    st.session_state.user_actions[key] = True
+    st.session_state.flash_message = (
+        f"Thank you! Your “{action}” commitment is locked in. "
+        "Atlanta shows up for Atlanta."
+    )
+
+
+def render_business_card(post: dict[str, Any]) -> None:
+    ratio = progress_ratio(post["supporters"], post["goal"])
+    pct = int(round(ratio * 100))
+    demo_badge = (
+        '<span class="badge badge-demo">Demo Business</span>'
+        if post.get("is_demo")
+        else '<span class="badge badge-meta">Community Post</span>'
+    )
+
+    st.markdown('<div class="biz-card">', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="biz-top">
+          <h3 class="biz-name">{post["business_name"]}</h3>
+          {demo_badge}
+          <span class="badge badge-meta">{post["neighborhood"]}</span>
+          <span class="badge badge-meta">{post["category"]}</span>
+          <span class="badge badge-time">{post["hours_remaining"]} hours left</span>
+        </div>
+        <p class="biz-story">{post["story"]}</p>
+        <p class="biz-request"><strong>Needs today:</strong> {post["request"]}</p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    render_media(post)
+
+    st.markdown(
+        f"""
+        <div class="progress-meta">
+          <span>{post["supporters"]} of {post["goal"]} supporters</span>
+          <span>{pct}%</span>
+        </div>
+        <div class="progress-track" role="progressbar"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="{pct}">
+          <div class="progress-fill" style="width: {pct}%;"></div>
+        </div>
+        <p class="support-label">How will you show up?</p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    available = set(post.get("support_actions", SUPPORT_TYPES))
+    cols = st.columns(3)
+    button_defs = [
+        ("I’ll Visit", "Visit"),
+        ("I’ll Share", "Share"),
+        ("I Can Help", "Help"),
+    ]
+
+    for col, (label, action) in zip(cols, button_defs):
+        with col:
+            already = (post["id"], action) in st.session_state.user_actions
+            enabled = action in available and not already
+            btn_label = "Committed ✓" if already else label
+            if st.button(
+                btn_label,
+                key=f"support-{post['id']}-{action}",
+                disabled=not enabled and not already,
+                use_container_width=True,
+                type="primary" if enabled else "secondary",
+            ):
+                if enabled:
+                    record_support(post["id"], action)
+                    st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def filter_posts(
+    posts: list[dict[str, Any]],
+    neighborhood: str,
+    category: str,
+    support_type: str,
+) -> list[dict[str, Any]]:
+    result = posts
+    if neighborhood != "All":
+        result = [p for p in result if p["neighborhood"] == neighborhood]
+    if category != "All":
+        result = [p for p in result if p["category"] == category]
+    if support_type != "All":
+        result = [p for p in result if support_type in p.get("support_actions", [])]
+    return result
+
+
+def discover_tab() -> None:
+    if st.session_state.flash_message:
+        st.success(st.session_state.flash_message)
+        st.session_state.flash_message = None
+
+    if st.session_state.form_success:
+        st.success(st.session_state.form_success)
+        st.session_state.form_success = None
+
+    render_impact(st.session_state.posts)
+
+    st.subheader("Find a business to boost")
+    f1, f2, f3 = st.columns(3)
+    with f1:
+        neighborhood = st.selectbox(
+            "Neighborhood",
+            ["All"] + NEIGHBORHOODS,
+            key="filter-neighborhood",
+        )
+    with f2:
+        category = st.selectbox(
+            "Business category",
+            ["All"] + CATEGORIES,
+            key="filter-category",
+        )
+    with f3:
+        support_type = st.selectbox(
+            "Type of support needed",
+            ["All"] + SUPPORT_TYPES,
+            key="filter-support",
+        )
+
+    filtered = filter_posts(
+        st.session_state.posts, neighborhood, category, support_type
+    )
+
+    if not filtered:
+        st.markdown(
+            """
+            <div class="empty-state">
+              No requests match these filters. Try “All” or post a new request.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    for post in filtered:
+        render_business_card(post)
+
+
+def post_request_tab() -> None:
+    st.subheader("Post a time-sensitive request")
+    st.write(
+        "Share one clear need your Atlanta mom-and-pop business has today. "
+        "Neighbors can commit to visit, share, or help."
+    )
+
+    with st.form("post-request-form", clear_on_submit=True):
+        business_name = st.text_input(
+            "Business name *",
+            placeholder="e.g. Peach & Bean Coffee",
+            key="form-business-name",
+        )
+        c1, c2 = st.columns(2)
+        with c1:
+            neighborhood = st.selectbox(
+                "Atlanta neighborhood *",
+                NEIGHBORHOODS,
+                key="form-neighborhood",
+            )
+        with c2:
+            category = st.selectbox(
+                "Business category *",
+                CATEGORIES,
+                key="form-category",
+            )
+
+        story = st.text_area(
+            "Short business story *",
+            placeholder="Tell neighbors who you are in 1–2 sentences.",
+            max_chars=280,
+            key="form-story",
+        )
+        request = st.text_area(
+            "What support do you need today? *",
+            placeholder="One immediate, time-sensitive need.",
+            max_chars=280,
+            key="form-request",
+        )
+
+        g1, g2 = st.columns(2)
+        with g1:
+            goal = st.number_input(
+                "Support goal *",
+                min_value=1,
+                max_value=500,
+                value=10,
+                step=1,
+                key="form-goal",
+            )
+        with g2:
+            hours_remaining = st.number_input(
+                "Expiration time (hours) *",
+                min_value=1,
+                max_value=168,
+                value=6,
+                step=1,
+                key="form-hours",
+            )
+
+        support_actions = st.multiselect(
+            "Available support actions *",
+            SUPPORT_TYPES,
+            default=["Visit", "Share"],
+            key="form-actions",
+        )
+
+        media = st.file_uploader(
+            "Optional photo or short video",
+            type=["png", "jpg", "jpeg", "mp4"],
+            key="form-media",
+            help="Stored only in this browser session — not uploaded to the cloud.",
+        )
+
+        submitted = st.form_submit_button(
+            "Publish request",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if not submitted:
+        return
+
+    errors: list[str] = []
+    if not business_name or not business_name.strip():
+        errors.append("Business name is required.")
+    if not story or not story.strip():
+        errors.append("Business story is required.")
+    if not request or not request.strip():
+        errors.append("Today’s support request is required.")
+    if not support_actions:
+        errors.append("Select at least one support action.")
+
+    if errors:
+        for err in errors:
+            st.error(err)
+        return
+
+    media_bytes = None
+    media_type = None
+    if media is not None:
+        try:
+            media_bytes = media.getvalue()
+            media_type = media.type or ""
+            # Prefer image; keep video if small enough for session memory
+            if media_type.startswith("video/") and len(media_bytes) > 8_000_000:
+                st.warning(
+                    "Video is larger than 8MB for this prototype. "
+                    "Publishing without video — try a photo instead."
+                )
+                media_bytes = None
+                media_type = None
+        except Exception:
+            st.warning("Could not process the upload. Publishing without media.")
+            media_bytes = None
+            media_type = None
+
+    st.session_state.post_counter += 1
+    new_post = {
+        "id": f"user-{st.session_state.post_counter}",
+        "business_name": business_name.strip(),
+        "neighborhood": neighborhood,
+        "category": category,
+        "story": story.strip(),
+        "request": request.strip(),
+        "goal": int(goal),
+        "supporters": 0,
+        "hours_remaining": int(hours_remaining),
+        "support_actions": list(support_actions),
+        "is_demo": False,
+        "media_bytes": media_bytes,
+        "media_type": media_type,
+        "placeholder_idx": st.session_state.post_counter % len(PLACEHOLDER_STYLES),
+        "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
+    }
+
+    # Put newest requests at the top of the feed
+    st.session_state.posts = [new_post] + list(st.session_state.posts)
+    st.session_state.form_success = (
+        f"“{new_post['business_name']}” is live! "
+        "Open the Discover Local Businesses tab to see your request."
+    )
+    st.session_state.active_tab = "Discover Local Businesses"
+    st.success(st.session_state.form_success)
+    st.info("Select the **Discover Local Businesses** tab to view your new card.")
+
+
+def render_footer() -> None:
+    st.markdown(
+        """
+        <div class="nb-footer">
+          <strong>Built in Atlanta for Hack RenderATL</strong><br/>
+          Supporting local businesses through community action<br/>
+          Seeded businesses are fictional and provided only for demonstration.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    st.set_page_config(
+        page_title="NeighborBoost ATL",
+        page_icon="🍑",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+    init_state()
+
+    with st.sidebar:
+        st.markdown("### NeighborBoost ATL")
+        st.caption("Atlanta shows up for Atlanta.")
+        st.write(
+            "This hackathon prototype stores posts and support actions in "
+            "session state only — refresh or reset to start clean."
+        )
+        st.divider()
+        if st.button("Reset Demo", key="reset-demo", use_container_width=True):
+            reset_demo()
+            st.rerun()
+        st.caption("Restores the four demo businesses and clears commitments.")
+
+    render_header()
+
+    tab_discover, tab_post = st.tabs(
+        ["Discover Local Businesses", "Post a Request"]
+    )
+
+    with tab_discover:
+        discover_tab()
+
+    with tab_post:
+        post_request_tab()
+
+    render_footer()
+
+
+if __name__ == "__main__":
+    main()
