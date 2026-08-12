@@ -351,28 +351,39 @@ def theme_vars(theme: str) -> str:
     if theme == "dark":
         return """
   --peach: #FFB37B;
-  --peach-deep: #FF9F5B;
-  --cream: #1C2440;
-  --cream-deep: #171E35;
-  --navy: #F5EDE3;
-  --navy-soft: #C7CCDE;
-  --green: #55C08B;
-  --green-soft: #3EA873;
+  --peach-deep: #FFC899;
+  --cream: #FFF4E8;
+  --cream-deep: #2A3356;
+  --navy: #F7F1E8;
+  --navy-soft: #D5DBEF;
+  --green: #6ED4A0;
+  --green-soft: #55C08B;
   --gold: #F2CC8F;
-  --white: #1C2440;
-  --page-bg: #101528;
-  --card-bg: #1C2440;
-  --card-border: rgba(245, 237, 227, 0.12);
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --header-bg: linear-gradient(135deg, rgba(28,36,64,0.96), rgba(23,30,53,0.94));
-  --header-border: rgba(255, 179, 123, 0.35);
-  --progress-track: #2A3356;
-  --sidebar-bg: linear-gradient(180deg, #171E35, #101528);
-  --hot-bg: #4A2218;
-  --hot-fg: #FFB37B;
-  --goal-bg: #1E3D32;
-  --goal-fg: #55C08B;
-  --request-bg: #243052;
+  --white: #FFFFFF;
+  --page-bg: #0E1426;
+  --card-bg: #1A2340;
+  --card-border: rgba(247, 241, 232, 0.18);
+  --shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  --header-bg: linear-gradient(135deg, #1A2340 0%, #222C4D 100%);
+  --header-border: rgba(255, 179, 123, 0.45);
+  --progress-track: #2F3A5C;
+  --sidebar-bg: linear-gradient(180deg, #151C33, #0E1426);
+  --hot-bg: #5C2A1C;
+  --hot-fg: #FFD0A8;
+  --goal-bg: #1F4A38;
+  --goal-fg: #A6F0C8;
+  --request-bg: #243152;
+  --hero-badge-bg: #FFB37B;
+  --hero-badge-fg: #1A1208;
+  --demo-bg: #5C2A1C;
+  --demo-fg: #FFD0A8;
+  --meta-bg: #1F4A38;
+  --meta-fg: #A6F0C8;
+  --time-bg: #2A3A66;
+  --time-fg: #D5DBEF;
+  --input-bg: #151C33;
+  --input-border: rgba(247, 241, 232, 0.28);
+  --muted-surface: rgba(247, 241, 232, 0.06);
 """
     return """
   --peach: #E07A5F;
@@ -398,6 +409,17 @@ def theme_vars(theme: str) -> str:
   --goal-bg: #E8F2ED;
   --goal-fg: #2F6F5E;
   --request-bg: #FFF4EA;
+  --hero-badge-bg: #1B2A4A;
+  --hero-badge-fg: #FFF8F1;
+  --demo-bg: #FFE0C8;
+  --demo-fg: #8A3B22;
+  --meta-bg: #E8F2ED;
+  --meta-fg: #2F6F5E;
+  --time-bg: #E7EEF8;
+  --time-fg: #3D5A80;
+  --input-bg: #FFFFFF;
+  --input-border: rgba(27, 42, 74, 0.18);
+  --muted-surface: rgba(27, 42, 74, 0.04);
 """
 
 
@@ -430,6 +452,13 @@ html, body, [class*="css"] {{
 
 .stApp {{
   background: {bg_layers};
+  color: var(--navy);
+}}
+
+[data-testid="stAppViewContainer"],
+[data-testid="stHeader"] {{
+  background: transparent;
+  color: var(--navy);
 }}
 
 .main .block-container {{
@@ -438,10 +467,44 @@ html, body, [class*="css"] {{
   max-width: 980px;
 }}
 
-h1, h2, h3, .brand-title {{
+/* Streamlit text & controls — keep contrast even in dark mode */
+.stMarkdown, .stMarkdown p, .stMarkdown span, .stCaption, .stText,
+label, [data-testid="stWidgetLabel"] p, [data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] span, [data-testid="stCaption"] {{
+  color: var(--navy) !important;
+}}
+
+h1, h2, h3, .brand-title, [data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2, [data-testid="stMarkdownContainer"] h3 {{
   font-family: "Fraunces", Georgia, serif !important;
   color: var(--navy) !important;
   letter-spacing: -0.02em;
+}}
+
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"] > div,
+div[data-baseweb="textarea"] > div,
+.stTextInput input, .stTextArea textarea, .stNumberInput input,
+.stMultiSelect [data-baseweb="select"] {{
+  background-color: var(--input-bg) !important;
+  color: var(--navy) !important;
+  border-color: var(--input-border) !important;
+}}
+
+div[data-baseweb="select"] *,
+.stTextInput input, .stTextArea textarea, .stNumberInput input {{
+  color: var(--navy) !important;
+}}
+
+[data-baseweb="menu"],
+[data-baseweb="popover"] {{
+  background-color: var(--card-bg) !important;
+  color: var(--navy) !important;
+}}
+
+[data-baseweb="menu"] li,
+[role="option"] {{
+  color: var(--navy) !important;
 }}
 
 .nb-header {{
@@ -455,8 +518,8 @@ h1, h2, h3, .brand-title {{
 
 .nb-badge {{
   display: inline-block;
-  background: var(--navy);
-  color: var(--cream);
+  background: var(--hero-badge-bg);
+  color: var(--hero-badge-fg);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -497,7 +560,7 @@ h1, h2, h3, .brand-title {{
 
 .impact-card {{
   background: var(--card-bg);
-  border: 1px solid rgba(47, 111, 94, 0.18);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   padding: 0.95rem 1rem;
   box-shadow: var(--shadow);
@@ -561,18 +624,18 @@ h1, h2, h3, .brand-title {{
 }}
 
 .badge-demo {{
-  background: #FFE0C8;
-  color: #8A3B22;
+  background: var(--demo-bg);
+  color: var(--demo-fg);
 }}
 
 .badge-meta {{
-  background: #E8F2ED;
-  color: #2F6F5E;
+  background: var(--meta-bg);
+  color: var(--meta-fg);
 }}
 
 .badge-time {{
-  background: #E7EEF8;
-  color: #3D5A80;
+  background: var(--time-bg);
+  color: var(--time-fg);
 }}
 
 .badge-hot {{
@@ -672,19 +735,44 @@ div.stButton > button[kind="primary"] {{
 }}
 
 div.stButton > button[kind="secondary"] {{
-  background: var(--cream) !important;
+  background: var(--cream-deep) !important;
   color: var(--navy) !important;
-  border: 1px solid rgba(224, 122, 95, 0.35) !important;
+  border: 1px solid var(--input-border) !important;
+}}
+
+div.stButton > button:disabled {{
+  opacity: 0.85 !important;
+  color: var(--navy-soft) !important;
+  background: var(--muted-surface) !important;
+  border: 1px solid var(--input-border) !important;
 }}
 
 section[data-testid="stSidebar"] {{
   background: var(--sidebar-bg);
   border-right: 1px solid var(--header-border);
+  color: var(--navy);
+}}
+
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] label {{
+  font-family: "Source Sans 3", "Segoe UI", sans-serif;
+  color: var(--navy) !important;
 }}
 
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3 {{
   font-family: "Fraunces", Georgia, serif !important;
+}}
+
+/* Tabs readable on dark backgrounds */
+button[data-baseweb="tab"] {{
+  color: var(--navy-soft) !important;
+}}
+button[data-baseweb="tab"][aria-selected="true"] {{
+  color: var(--navy) !important;
 }}
 
 .nb-footer {{
@@ -702,8 +790,8 @@ section[data-testid="stSidebar"] h3 {{
 }}
 
 .empty-state {{
-  background: rgba(255,255,255,0.08);
-  border: 1px dashed var(--navy-soft);
+  background: var(--muted-surface);
+  border: 1px dashed var(--input-border);
   border-radius: 16px;
   padding: 1.4rem;
   text-align: center;
@@ -1174,7 +1262,7 @@ def main() -> None:
             reset_demo()
             st.rerun()
         st.caption(
-            "Restores the four demo businesses and clears commitments. "
+            "Restores the seeded demo businesses and clears commitments. "
             "Your theme preference is kept."
         )
 
