@@ -808,6 +808,17 @@ div[data-testid="stTooltipContent"],
   pointer-events: none !important;
 }}
 
+/* Hide “Press Enter to submit/apply” keyboard instruction text */
+[data-testid="InputInstructions"],
+div[data-testid="InputInstructions"] {{
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}}
+
 @media (max-width: 700px) {{
   .impact-wrap {{
     grid-template-columns: 1fr;
