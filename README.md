@@ -1,1 +1,92 @@
-# NeighborBoostATL
+# NeighborBoost ATL
+
+**Atlanta shows up for Atlanta.**
+
+## Mission
+
+NeighborBoost ATL helps Atlanta mom-and-pop businesses post one immediate, time-sensitive need. Community members can commit to visiting, sharing, or helping that business.
+
+Built for Hack RenderATL’s **Best Hack for Good** category.
+
+## Community problem
+
+Small Atlanta businesses often need a quick boost during slow hours, before closing, or when launching something new — but they lack a simple way to ask neighbors for one clear action. Social posts get buried; generic platforms feel impersonal. NeighborBoost ATL makes the ask local, urgent, and actionable.
+
+## How it works
+
+1. A local business posts **one** time-sensitive request (visit, share, or help).
+2. Neighbors browse the Discover feed, filter by neighborhood / category / support type.
+3. Supporters click **I’ll Visit**, **I’ll Share**, or **I Can Help**.
+4. Progress bars and city-wide impact metrics update immediately.
+
+All data lives in Streamlit session state for this hackathon prototype — no accounts, no database.
+
+## Key features
+
+- Seeded Atlanta demo businesses with progress goals and countdowns
+- Support actions with per-session duplicate prevention
+- Neighborhood, category, and support-type filters
+- “Post a Request” form with optional photo/video preview
+- Impact summary (active requests, businesses boosted, commitments)
+- Reset Demo in the sidebar
+- Warm, mobile-friendly UI (peach, cream, navy, community green)
+
+## Technology
+
+- Python 3
+- Streamlit
+- Streamlit session state (posts, counters, actions)
+- Minimal custom CSS
+- Pillow (image handling via Streamlit)
+
+No React, database, auth, payments, maps, external APIs, AI, or cloud file storage.
+
+## Installation
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+## Run locally
+
+```bash
+streamlit run app.py
+```
+
+## Deploy on Render
+
+1. Create a new **Web Service** from this repository.
+2. Build command: `pip install -r requirements.txt`
+3. Start command:
+
+```bash
+streamlit run app.py --server.address 0.0.0.0 --server.port $PORT
+```
+
+4. Ensure Python 3 is selected. No environment secrets are required for the MVP.
+
+## Social impact
+
+NeighborBoost ATL turns “I want to support local” into a concrete commitment — walk in today, share a lunch special, or lend a skill. That keeps dollars and attention circulating in Atlanta neighborhoods.
+
+## Prototype limitations
+
+- Data resets when the browser session ends or when **Reset Demo** is clicked
+- No user accounts or business verification
+- No real payments, maps, or messaging
+- Media uploads stay in memory for the session only
+- Seeded businesses are **fictional** and labeled **Demo Business**
+
+## Future improvements
+
+- Persistent storage and verified business profiles
+- SMS / email reminders for commitments
+- Neighborhood ambassador moderation
+- Real photo libraries with owner consent
+- Accessibility audits and multilingual support
+
+## Demo data note
+
+The four seeded businesses (Peach & Bean Coffee, Nia’s Neighborhood Bakes, Southside Plant Studio, and Cultura Kitchen ATL) are **fictional** and provided only for demonstration. They are not affiliated with real Atlanta businesses.
