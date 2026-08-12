@@ -15,16 +15,21 @@ Small Atlanta businesses often need a quick boost during slow hours, before clos
 ## How it works
 
 1. A local business posts **one** time-sensitive request (visit, share, or help).
-2. Neighbors browse the Discover feed, filter by neighborhood / category / support type.
+2. Neighbors browse the Discover feed (sorted by urgency), filter by neighborhood / category / support type.
 3. Supporters click **I’ll Visit**, **I’ll Share**, or **I Can Help**.
-4. Progress bars and city-wide impact metrics update immediately.
+4. Progress bars, impact metrics, and the **Hot Right Now** ranking update immediately.
 
 All data lives in Streamlit session state for this hackathon prototype — no accounts, no database.
 
 ## Key features
 
 - Seeded Atlanta demo businesses with progress goals and countdowns
-- Support actions with per-session duplicate prevention
+- Support actions with per-session duplicate prevention and ✓ done labels
+- **Hot Right Now** ranking for the most-supported business(es)
+- Urgency sorting + clear-filters control
+- Goal Met badge when a request hits its support goal
+- Dark / light mode toggle (persists across Reset Demo)
+- Occasional simulated $5 credit celebration (cosmetic only — not real money)
 - Neighborhood, category, and support-type filters
 - “Post a Request” form with optional photo/video preview
 - Impact summary (active requests, businesses boosted, commitments)
@@ -66,7 +71,7 @@ streamlit run app.py
 ### Manual Web Service
 
 1. Go to [Render Dashboard](https://dashboard.render.com/) → **New** → **Web Service**.
-2. Connect `devchicajas/NeighborBoostATL` (branch `main`).
+2. Connect `devchicajas/NeighborBoostATL` (branch `feature/combined-mvp` or `neighborboost-atl`).
 3. Runtime: **Python 3**
 4. Build command: `pip install -r requirements.txt`
 5. Start command:
@@ -87,9 +92,13 @@ NeighborBoost ATL turns “I want to support local” into a concrete commitment
 
 - Data resets when the browser session ends or when **Reset Demo** is clicked
 - No user accounts or business verification
-- No real payments, maps, or messaging
+- No real payments, maps, or messaging (the $5 credit moment is simulated only)
 - Media uploads stay in memory for the session only
 - Seeded businesses are **fictional** and labeled **Demo Business**
+
+## Collaboration note
+
+This branch (`feature/combined-mvp`) uses Jasmin’s MVP design and structure as the base, with selected enhancements adapted from Ulises’s MVP (`feature/neighborboost-mvp`).
 
 ## Future improvements
 

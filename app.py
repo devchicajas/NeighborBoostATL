@@ -1,13 +1,18 @@
-"""NeighborBoost ATL — Hack RenderATL MVP."""
+"""NeighborBoost ATL — Hack RenderATL MVP.
+
+Base design/structure from Jasmin’s MVP, with enhancements adapted from
+Ulises’s MVP (hot ranking, theme toggle, simulated credit moment, UX polish).
+"""
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
 import streamlit as st
 
 # ---------------------------------------------------------------------------
-# Seed data
+# Constants
 # ---------------------------------------------------------------------------
 
 NEIGHBORHOODS = [
@@ -32,6 +37,18 @@ CATEGORIES = [
 
 SUPPORT_TYPES = ["Visit", "Share", "Help"]
 
+ACTION_LABELS = {
+    "Visit": "I’ll Visit",
+    "Share": "I’ll Share",
+    "Help": "I Can Help",
+}
+
+ACTION_DONE_LABELS = {
+    "Visit": "✓ Visited",
+    "Share": "✓ Shared",
+    "Help": "✓ Helped",
+}
+
 PLACEHOLDER_STYLES = [
     ("☕", "linear-gradient(135deg, #E07A5F 0%, #F2CC8F 100%)"),
     ("🥐", "linear-gradient(135deg, #81B29A 0%, #F2CC8F 100%)"),
@@ -39,6 +56,13 @@ PLACEHOLDER_STYLES = [
     ("🍲", "linear-gradient(135deg, #E07A5F 0%, #3D5A80 100%)"),
 ]
 
+# Roughly 1-in-5 chance of a cosmetic demo “$5 credit” celebration.
+CREDIT_CHANCE = 0.20
+
+
+# ---------------------------------------------------------------------------
+# Seed data
+# ---------------------------------------------------------------------------
 
 def make_seed_posts() -> list[dict[str, Any]]:
     return [
@@ -142,6 +166,8 @@ def make_seed_posts() -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def init_state() -> None:
+    if "theme" not in st.session_state:
+        st.session_state.theme = "light"
     if "posts" not in st.session_state:
         st.session_state.posts = make_seed_posts()
     if "user_actions" not in st.session_state:
@@ -155,19 +181,23 @@ def init_state() -> None:
         st.session_state.flash_message = None
     if "form_success" not in st.session_state:
         st.session_state.form_success = None
+    if "credit_celebration" not in st.session_state:
+        st.session_state.credit_celebration = None
 
 
 def reset_demo() -> None:
+    """Restore seed data and clear commitments; keep theme preference."""
     st.session_state.posts = make_seed_posts()
     st.session_state.user_actions = {}
     st.session_state.post_counter = 0
     st.session_state.flash_message = None
     st.session_state.form_success = None
+    st.session_state.credit_celebration = None
     st.session_state.active_tab = "Discover Local Businesses"
 
 
 # ---------------------------------------------------------------------------
-# Metrics helpers
+# Metrics / ranking helpers
 # ---------------------------------------------------------------------------
 
 def compute_metrics(posts: list[dict[str, Any]]) -> tuple[int, int, int]:
@@ -183,15 +213,53 @@ def progress_ratio(supporters: int, goal: int) -> float:
     return min(supporters / goal, 1.0)
 
 
+def compute_hot_ids(posts: list[dict[str, Any]]) -> set[str]:
+    """Posts tied for highest supporter count earn the Hot Right Now badge."""
+    if not posts:
+        return set()
+    max_supporters = max(p["supporters"] for p in posts)
+    if max_supporters <= 0:
+        return set()
+    return {p["id"] for p in posts if p["supporters"] == max_supporters}
+
+
+def sort_by_urgency(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Soonest-expiring requests first; keep relative order for ties."""
+    return sorted(posts, key=lambda p: (p.get("hours_remaining", 9999), p["id"]))
+
+
 # ---------------------------------------------------------------------------
-# Custom CSS
+# Theming / CSS (Jasmin visual language + Ulises dark mode)
 # ---------------------------------------------------------------------------
 
-CUSTOM_CSS = """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
-
-:root {
+def theme_vars(theme: str) -> str:
+    if theme == "dark":
+        return """
+  --peach: #FFB37B;
+  --peach-deep: #FF9F5B;
+  --cream: #1C2440;
+  --cream-deep: #171E35;
+  --navy: #F5EDE3;
+  --navy-soft: #C7CCDE;
+  --green: #55C08B;
+  --green-soft: #3EA873;
+  --gold: #F2CC8F;
+  --white: #1C2440;
+  --page-bg: #101528;
+  --card-bg: #1C2440;
+  --card-border: rgba(245, 237, 227, 0.12);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --header-bg: linear-gradient(135deg, rgba(28,36,64,0.96), rgba(23,30,53,0.94));
+  --header-border: rgba(255, 179, 123, 0.35);
+  --progress-track: #2A3356;
+  --sidebar-bg: linear-gradient(180deg, #171E35, #101528);
+  --hot-bg: #4A2218;
+  --hot-fg: #FFB37B;
+  --goal-bg: #1E3D32;
+  --goal-fg: #55C08B;
+  --request-bg: #243052;
+"""
+    return """
   --peach: #E07A5F;
   --peach-deep: #C85A3E;
   --cream: #FFF8F1;
@@ -202,44 +270,75 @@ CUSTOM_CSS = """
   --green-soft: #81B29A;
   --gold: #F2CC8F;
   --white: #FFFFFF;
+  --page-bg: #FFF8F1;
+  --card-bg: #FFFFFF;
+  --card-border: rgba(27, 42, 74, 0.08);
   --shadow: 0 8px 24px rgba(27, 42, 74, 0.08);
-}
+  --header-bg: linear-gradient(135deg, rgba(255,248,241,0.95), rgba(255,232,214,0.92));
+  --header-border: rgba(224, 122, 95, 0.28);
+  --progress-track: #F0E6DC;
+  --sidebar-bg: linear-gradient(180deg, #FFF4EA, #FFE8D6);
+  --hot-bg: #FFE1D6;
+  --hot-fg: #C1440E;
+  --goal-bg: #E8F2ED;
+  --goal-fg: #2F6F5E;
+  --request-bg: #FFF4EA;
+"""
 
-html, body, [class*="css"] {
+
+def inject_css(theme: str) -> None:
+    vars_css = theme_vars(theme)
+    bg_layers = (
+        "radial-gradient(circle at 12% 8%, rgba(255,179,123,0.12), transparent 36%),"
+        "radial-gradient(circle at 88% 0%, rgba(85,192,139,0.12), transparent 32%),"
+        "linear-gradient(180deg, #101528 0%, #171E35 45%, #101528 100%)"
+        if theme == "dark"
+        else
+        "radial-gradient(circle at 12% 8%, rgba(224, 122, 95, 0.18), transparent 36%),"
+        "radial-gradient(circle at 88% 0%, rgba(129, 178, 154, 0.22), transparent 32%),"
+        "linear-gradient(180deg, #FFF8F1 0%, #FFEDE0 45%, #FFF8F1 100%)"
+    )
+
+    st.markdown(
+        f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+
+:root {{
+{vars_css}
+}}
+
+html, body, [class*="css"] {{
   font-family: "Source Sans 3", "Segoe UI", sans-serif;
   color: var(--navy);
-}
+}}
 
-.stApp {
-  background:
-    radial-gradient(circle at 12% 8%, rgba(224, 122, 95, 0.18), transparent 36%),
-    radial-gradient(circle at 88% 0%, rgba(129, 178, 154, 0.22), transparent 32%),
-    linear-gradient(180deg, #FFF8F1 0%, #FFEDE0 45%, #FFF8F1 100%);
-}
+.stApp {{
+  background: {bg_layers};
+}}
 
-.main .block-container {
+.main .block-container {{
   padding-top: 1.4rem;
   padding-bottom: 2.5rem;
   max-width: 980px;
-}
+}}
 
-h1, h2, h3, .brand-title {
+h1, h2, h3, .brand-title {{
   font-family: "Fraunces", Georgia, serif !important;
   color: var(--navy) !important;
   letter-spacing: -0.02em;
-}
+}}
 
-/* Header */
-.nb-header {
-  background: linear-gradient(135deg, rgba(255,248,241,0.95), rgba(255,232,214,0.92));
-  border: 1px solid rgba(224, 122, 95, 0.28);
+.nb-header {{
+  background: var(--header-bg);
+  border: 1px solid var(--header-border);
   border-radius: 22px;
   padding: 1.4rem 1.5rem 1.2rem;
   box-shadow: var(--shadow);
   margin-bottom: 1.1rem;
-}
+}}
 
-.nb-badge {
+.nb-badge {{
   display: inline-block;
   background: var(--navy);
   color: var(--cream);
@@ -250,90 +349,93 @@ h1, h2, h3, .brand-title {
   padding: 0.35rem 0.7rem;
   border-radius: 999px;
   margin-bottom: 0.75rem;
-}
+}}
 
-.brand-title {
+.brand-title {{
   font-size: clamp(1.9rem, 4vw, 2.55rem);
   font-weight: 700;
   margin: 0 0 0.25rem 0;
   line-height: 1.1;
-}
+}}
 
-.brand-tagline {
+.brand-tagline {{
   font-size: 1.15rem;
   font-weight: 600;
   color: var(--peach-deep);
   margin: 0 0 0.55rem 0;
-}
+}}
 
-.brand-desc {
+.brand-desc {{
   margin: 0;
   color: var(--navy-soft);
   font-size: 1.02rem;
   line-height: 1.45;
   max-width: 42rem;
-}
+}}
 
-/* Impact metrics */
-.impact-wrap {
+.impact-wrap {{
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
   margin: 0.4rem 0 1.1rem;
-}
+}}
 
-.impact-card {
-  background: var(--white);
+.impact-card {{
+  background: var(--card-bg);
   border: 1px solid rgba(47, 111, 94, 0.18);
   border-radius: 16px;
   padding: 0.95rem 1rem;
   box-shadow: var(--shadow);
   text-align: center;
-}
+}}
 
-.impact-value {
+.impact-value {{
   font-family: "Fraunces", Georgia, serif;
   font-size: 1.85rem;
   font-weight: 700;
   color: var(--green);
   line-height: 1;
   margin-bottom: 0.35rem;
-}
+}}
 
-.impact-label {
+.impact-label {{
   font-size: 0.86rem;
   font-weight: 600;
   color: var(--navy-soft);
   line-height: 1.25;
-}
+}}
 
-/* Business cards */
-.biz-card {
-  background: var(--white);
-  border: 1px solid rgba(27, 42, 74, 0.08);
+.biz-card {{
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 20px;
   padding: 1.15rem 1.2rem 1.05rem;
   box-shadow: var(--shadow);
   margin-bottom: 1.1rem;
-}
+}}
 
-.biz-top {
+.biz-card.is-hot {{
+  border-color: rgba(224, 122, 95, 0.45);
+  box-shadow: 0 10px 28px rgba(224, 122, 95, 0.16);
+}}
+
+.biz-top {{
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem 0.55rem;
   margin-bottom: 0.55rem;
-}
+}}
 
-.biz-name {
+.biz-name {{
   font-family: "Fraunces", Georgia, serif;
   font-size: 1.35rem;
   font-weight: 700;
   color: var(--navy);
   margin: 0;
-}
+}}
 
-.badge {
+.badge {{
   display: inline-block;
   font-size: 0.72rem;
   font-weight: 700;
@@ -341,35 +443,56 @@ h1, h2, h3, .brand-title {
   text-transform: uppercase;
   padding: 0.28rem 0.55rem;
   border-radius: 999px;
-}
+}}
 
-.badge-demo {
+.badge-demo {{
   background: #FFE0C8;
   color: #8A3B22;
-}
+}}
 
-.badge-meta {
+.badge-meta {{
   background: #E8F2ED;
-  color: var(--green);
-}
+  color: #2F6F5E;
+}}
 
-.badge-time {
+.badge-time {{
   background: #E7EEF8;
-  color: var(--navy-soft);
-}
+  color: #3D5A80;
+}}
 
-.biz-story, .biz-request {
+.badge-hot {{
+  background: var(--hot-bg);
+  color: var(--hot-fg);
+}}
+
+.badge-goal {{
+  background: var(--goal-bg);
+  color: var(--goal-fg);
+}}
+
+.biz-story {{
   color: var(--navy);
   line-height: 1.45;
   margin: 0.35rem 0;
   font-size: 0.98rem;
-}
+}}
 
-.biz-request strong {
+.biz-request {{
+  color: var(--navy);
+  line-height: 1.45;
+  margin: 0.55rem 0 0.35rem;
+  font-size: 0.98rem;
+  background: var(--request-bg);
+  border-left: 4px solid var(--green);
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+}}
+
+.biz-request strong {{
   color: var(--peach-deep);
-}
+}}
 
-.media-placeholder {
+.media-placeholder {{
   width: 100%;
   min-height: 140px;
   border-radius: 14px;
@@ -380,25 +503,25 @@ h1, h2, h3, .brand-title {
   font-size: 3rem;
   margin: 0.65rem 0 0.85rem;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
-}
+}}
 
-.progress-track {
+.progress-track {{
   width: 100%;
   height: 12px;
-  background: #F0E6DC;
+  background: var(--progress-track);
   border-radius: 999px;
   overflow: hidden;
   margin: 0.45rem 0 0.35rem;
-}
+}}
 
-.progress-fill {
+.progress-fill {{
   height: 100%;
   background: linear-gradient(90deg, var(--green-soft), var(--green));
   border-radius: 999px;
   transition: width 0.35s ease;
-}
+}}
 
-.progress-meta {
+.progress-meta {{
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
@@ -406,89 +529,88 @@ h1, h2, h3, .brand-title {
   font-weight: 600;
   color: var(--navy-soft);
   margin-bottom: 0.55rem;
-}
+}}
 
-.support-label {
+.support-label {{
   font-size: 0.88rem;
   font-weight: 700;
   color: var(--navy);
   margin: 0.2rem 0 0.15rem;
-}
+}}
 
-/* Buttons */
-div.stButton > button {
+div.stButton > button {{
   border-radius: 12px !important;
   font-weight: 700 !important;
   min-height: 2.7rem;
   border: 1px solid transparent !important;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
+}}
 
-div.stButton > button:hover {
+div.stButton > button:hover {{
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(27, 42, 74, 0.12);
-}
+}}
 
-div.stButton > button[kind="primary"] {
+div.stButton > button[kind="primary"] {{
   background: linear-gradient(135deg, var(--peach), var(--peach-deep)) !important;
   color: white !important;
-}
+}}
 
-div.stButton > button[kind="secondary"] {
+div.stButton > button[kind="secondary"] {{
   background: var(--cream) !important;
   color: var(--navy) !important;
   border: 1px solid rgba(224, 122, 95, 0.35) !important;
-}
+}}
 
-/* Sidebar */
-section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, #FFF4EA, #FFE8D6);
-  border-right: 1px solid rgba(224, 122, 95, 0.2);
-}
+section[data-testid="stSidebar"] {{
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--header-border);
+}}
 
 section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 {
+section[data-testid="stSidebar"] h3 {{
   font-family: "Fraunces", Georgia, serif !important;
-}
+}}
 
-/* Footer */
-.nb-footer {
+.nb-footer {{
   margin-top: 1.8rem;
   padding: 1.1rem 0.4rem 0.2rem;
-  border-top: 1px solid rgba(27, 42, 74, 0.12);
+  border-top: 1px solid var(--card-border);
   text-align: center;
   color: var(--navy-soft);
   font-size: 0.92rem;
   line-height: 1.5;
-}
+}}
 
-.nb-footer strong {
+.nb-footer strong {{
   color: var(--navy);
-}
+}}
 
-.empty-state {
-  background: rgba(255,255,255,0.8);
-  border: 1px dashed rgba(61, 90, 128, 0.35);
+.empty-state {{
+  background: rgba(255,255,255,0.08);
+  border: 1px dashed var(--navy-soft);
   border-radius: 16px;
   padding: 1.4rem;
   text-align: center;
   color: var(--navy-soft);
-}
+}}
 
-@media (max-width: 700px) {
-  .impact-wrap {
+@media (max-width: 700px) {{
+  .impact-wrap {{
     grid-template-columns: 1fr;
-  }
-  .biz-card {
+  }}
+  .biz-card {{
     padding: 1rem;
-  }
-  .main .block-container {
+  }}
+  .main .block-container {{
     padding-left: 0.9rem;
     padding-right: 0.9rem;
-  }
-}
+  }}
+}}
 </style>
-"""
+""",
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -571,37 +693,53 @@ def record_support(post_id: str, action: str) -> None:
         )
         return
 
+    business_name = ""
     for post in st.session_state.posts:
         if post["id"] == post_id:
             post["supporters"] += 1
             post["actions_taken"][action] = post["actions_taken"].get(action, 0) + 1
+            business_name = post["business_name"]
             break
 
     st.session_state.user_actions[key] = True
     st.session_state.flash_message = (
-        f"Thank you! Your “{action}” commitment is locked in. "
+        f"Thank you! Your “{action}” commitment for {business_name} is locked in. "
         "Atlanta shows up for Atlanta."
     )
 
+    # Cosmetic demo reward only — no real money or payments.
+    if random.random() < CREDIT_CHANCE:
+        st.session_state.credit_celebration = business_name
 
-def render_business_card(post: dict[str, Any]) -> None:
+
+def render_business_card(post: dict[str, Any], is_hot: bool = False) -> None:
     ratio = progress_ratio(post["supporters"], post["goal"])
     pct = int(round(ratio * 100))
-    demo_badge = (
-        '<span class="badge badge-demo">Demo Business</span>'
-        if post.get("is_demo")
-        else '<span class="badge badge-meta">Community Post</span>'
-    )
+    goal_met = post["supporters"] >= post["goal"]
 
-    st.markdown('<div class="biz-card">', unsafe_allow_html=True)
+    badges = []
+    if post.get("is_demo"):
+        badges.append('<span class="badge badge-demo">Demo Business</span>')
+    else:
+        badges.append('<span class="badge badge-meta">Community Post</span>')
+    if is_hot:
+        badges.append('<span class="badge badge-hot">🔥 Hot Right Now</span>')
+    if goal_met:
+        badges.append('<span class="badge badge-goal">Goal Met</span>')
+    badges.append(f'<span class="badge badge-meta">{post["neighborhood"]}</span>')
+    badges.append(f'<span class="badge badge-meta">{post["category"]}</span>')
+    badges.append(
+        f'<span class="badge badge-time">{post["hours_remaining"]} hours left</span>'
+    )
+    badge_html = "".join(badges)
+    hot_class = " is-hot" if is_hot else ""
+
+    st.markdown(f'<div class="biz-card{hot_class}">', unsafe_allow_html=True)
     st.markdown(
         f"""
         <div class="biz-top">
           <h3 class="biz-name">{post["business_name"]}</h3>
-          {demo_badge}
-          <span class="badge badge-meta">{post["neighborhood"]}</span>
-          <span class="badge badge-meta">{post["category"]}</span>
-          <span class="badge badge-time">{post["hours_remaining"]} hours left</span>
+          {badge_html}
         </div>
         <p class="biz-story">{post["story"]}</p>
         <p class="biz-request"><strong>Needs today:</strong> {post["request"]}</p>
@@ -628,21 +766,17 @@ def render_business_card(post: dict[str, Any]) -> None:
 
     available = set(post.get("support_actions", SUPPORT_TYPES))
     cols = st.columns(3)
-    button_defs = [
-        ("I’ll Visit", "Visit"),
-        ("I’ll Share", "Share"),
-        ("I Can Help", "Help"),
-    ]
-
-    for col, (label, action) in zip(cols, button_defs):
+    for col, action in zip(cols, SUPPORT_TYPES):
         with col:
             already = (post["id"], action) in st.session_state.user_actions
             enabled = action in available and not already
-            btn_label = "Committed ✓" if already else label
+            btn_label = (
+                ACTION_DONE_LABELS[action] if already else ACTION_LABELS[action]
+            )
             if st.button(
                 btn_label,
                 key=f"support-{post['id']}-{action}",
-                disabled=not enabled and not already,
+                disabled=not enabled,
                 use_container_width=True,
                 type="primary" if enabled else "secondary",
             ):
@@ -681,7 +815,7 @@ def discover_tab() -> None:
     render_impact(st.session_state.posts)
 
     st.subheader("Find a business to boost")
-    f1, f2, f3 = st.columns(3)
+    f1, f2, f3, f4 = st.columns([1.2, 1.2, 1.2, 0.8])
     with f1:
         neighborhood = st.selectbox(
             "Neighborhood",
@@ -700,16 +834,31 @@ def discover_tab() -> None:
             ["All"] + SUPPORT_TYPES,
             key="filter-support",
         )
+    with f4:
+        st.write("")  # align with selectboxes
+        st.write("")
+        if st.button("Clear filters", key="clear-filters", use_container_width=True):
+            st.session_state["filter-neighborhood"] = "All"
+            st.session_state["filter-category"] = "All"
+            st.session_state["filter-support"] = "All"
+            st.rerun()
 
     filtered = filter_posts(
         st.session_state.posts, neighborhood, category, support_type
+    )
+    filtered = sort_by_urgency(filtered)
+    hot_ids = compute_hot_ids(st.session_state.posts)
+
+    st.caption(
+        f"Showing {len(filtered)} request(s), sorted by urgency. "
+        "🔥 marks the hottest business(es) citywide."
     )
 
     if not filtered:
         st.markdown(
             """
             <div class="empty-state">
-              No requests match these filters. Try “All” or post a new request.
+              No requests match these filters. Try “Clear filters” or post a new request.
             </div>
             """,
             unsafe_allow_html=True,
@@ -717,7 +866,7 @@ def discover_tab() -> None:
         return
 
     for post in filtered:
-        render_business_card(post)
+        render_business_card(post, is_hot=post["id"] in hot_ids)
 
 
 def post_request_tab() -> None:
@@ -824,7 +973,6 @@ def post_request_tab() -> None:
         try:
             media_bytes = media.getvalue()
             media_type = media.type or ""
-            # Prefer image; keep video if small enough for session memory
             if media_type.startswith("video/") and len(media_bytes) > 8_000_000:
                 st.warning(
                     "Video is larger than 8MB for this prototype. "
@@ -856,7 +1004,6 @@ def post_request_tab() -> None:
         "actions_taken": {"Visit": 0, "Share": 0, "Help": 0},
     }
 
-    # Put newest requests at the top of the feed
     st.session_state.posts = [new_post] + list(st.session_state.posts)
     st.session_state.form_success = (
         f"“{new_post['business_name']}” is live! "
@@ -891,12 +1038,18 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
-    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
     init_state()
 
+    # Sidebar first so theme changes apply in the same rerun (Ulises pattern).
     with st.sidebar:
         st.markdown("### NeighborBoost ATL")
         st.caption("Atlanta shows up for Atlanta.")
+        is_dark = st.toggle(
+            "Dark mode",
+            value=(st.session_state.theme == "dark"),
+            key="theme-toggle",
+        )
+        st.session_state.theme = "dark" if is_dark else "light"
         st.write(
             "This hackathon prototype stores posts and support actions in "
             "session state only — refresh or reset to start clean."
@@ -905,7 +1058,22 @@ def main() -> None:
         if st.button("Reset Demo", key="reset-demo", use_container_width=True):
             reset_demo()
             st.rerun()
-        st.caption("Restores the four demo businesses and clears commitments.")
+        st.caption(
+            "Restores the four demo businesses and clears commitments. "
+            "Your theme preference is kept."
+        )
+
+    inject_css(st.session_state.theme)
+
+    # Simulated $5 credit celebration (cosmetic only).
+    if st.session_state.credit_celebration:
+        biz = st.session_state.credit_celebration
+        st.success(
+            f"🎉 You’ve won a $5 credit to visit **{biz}**! "
+            "(Simulated demo reward — not real currency.)"
+        )
+        st.balloons()
+        st.session_state.credit_celebration = None
 
     render_header()
 
@@ -913,11 +1081,12 @@ def main() -> None:
         ["Discover Local Businesses", "Post a Request"]
     )
 
-    with tab_discover:
-        discover_tab()
-
+    # Render Post first so a just-submitted request appears in Discover
+    # on the same rerun (Ulises pattern); visual tab order is unchanged.
     with tab_post:
         post_request_tab()
+    with tab_discover:
+        discover_tab()
 
     render_footer()
 
