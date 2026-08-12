@@ -71,7 +71,7 @@ streamlit run app.py
 ### Manual Web Service
 
 1. Go to [Render Dashboard](https://dashboard.render.com/) → **New** → **Web Service**.
-2. Connect `devchicajas/NeighborBoostATL` (branch `feature/combined-mvp` or `neighborboost-atl`).
+2. Connect `devchicajas/NeighborBoostATL` (branch `main`).
 3. Runtime: **Python 3**
 4. Build command: `pip install -r requirements.txt`
 5. Start command:
@@ -98,7 +98,7 @@ NeighborBoost ATL turns “I want to support local” into a concrete commitment
 
 ## Collaboration note
 
-This branch (`feature/combined-mvp`) uses Jasmin’s MVP design and structure as the base, with selected enhancements adapted from Ulises’s MVP (`feature/neighborboost-mvp`).
+This app uses Jasmin’s MVP design and structure as the base, with selected enhancements adapted from Ulises’s MVP (`feature/neighborboost-mvp`).
 
 ## Future improvements
 

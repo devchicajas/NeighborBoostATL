@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     region: oregon
-    branch: feature/combined-mvp
+    branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: streamlit run app.py --server.address 0.0.0.0 --server.port $PORT --server.headless true
     autoDeploy: true
